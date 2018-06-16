@@ -16,7 +16,7 @@ def read_txt(filename, mode, limit):
 
 def mi(c_x, c_y, c_xy, N):
     """Counting MI using formuala on slide 127"""
-    return (c_xy / N) * math.log((c_xy * N) / (c_x * c_y), 2)
+    return (c_xy / N) * math.log((c_xy * N) / (c_x * c_y), 2) if (c_xy * N) / (c_x * c_y) > 0 else 0
 
 
 def mi_sum(unigr_dict, bigr_dict, mi_dict, N):
@@ -34,46 +34,56 @@ def calculate_sum(wf, bigr_dict, mi_dict):
     return sum_dict
 
 
+def check_key(key, dict):
+    """Checking the presence in a dictionary"""
+    return dict[key] if key in dict else 0
+
+
 def calculate_sub(sum_dict, mi_dict, word_a, word_b):
     """Subtraction part, formula on slide 127"""
-    return sum_dict[word_a] + sum_dict[word_b] - mi_dict[(word_a, word_b)] - mi_dict[(word_b, word_a)]
+    return sum_dict[word_a] + sum_dict[word_b] - \
+        check_key((word_a, word_b), mi_dict) - check_key((word_b, word_a), mi_dict)
 
 
-def calculate_sum_lr(word_a, word_b, unigr_dict, bigr_dict, posit, N):
+def calculate_sum_lr(word_a, word_b, unigr_dict, bigr_dict, word_list, posit, N):
     """Calculate sum over left positioned and right positioned word a and word b"""
     sum_lr_ab = 0
     c_ab = unigr_dict[word_a] + unigr_dict[word_b]
-    for bigram in bigr_dict:
-        c_lr = float(unigr_dict[bigram[posit]])
-        if not (c_lr == word_a or c_lr == word_b):
+    for word in word_list:
+        c_lr = float(unigr_dict[word])
+        if not (word == word_a or word == word_b):
             if posit == 0:
-                c_lr_ab = bigr_dict[(bigram[posit], word_a)] + bigr_dict[(bigram[posit], word_b)]
+                c_lr_ab = bigr_dict[(word, word_a)] + bigr_dict[(word, word_b)]
             else:
-                c_lr_ab = bigr_dict[(word_a, bigram[posit])] + bigr_dict[(word_b, bigram[posit])]
+                c_lr_ab = bigr_dict[(word_a, word)] + bigr_dict[(word_b, word)]
             sum_lr_ab += mi(c_lr, c_ab, c_lr_ab, N)
     return sum_lr_ab, c_ab
 
 
-def calculate_add(word_a, word_b, unigr_dict, bigr_dict, N):
+def calculate_add(word_a, word_b, unigr_dict, bigr_dict, word_list, N):
     """Calculate add, formula on slide 128"""
-    sum_l_ab, c_l_ab = calculate_sum_lr(word_a, word_b, unigr_dict, bigr_dict, 0, N)
-    sum_r_ab, c_r_ab = calculate_sum_lr(word_a, word_b, unigr_dict, bigr_dict, 1, N)
+    sum_l_ab, c_l_ab = calculate_sum_lr(word_a, word_b, unigr_dict, bigr_dict, word_list[0], 0, N)
+    sum_r_ab, c_r_ab = calculate_sum_lr(word_a, word_b, unigr_dict, bigr_dict, word_list[1], 1, N)
     c_ab_ab = bigr_dict[(word_a, word_a)] + bigr_dict[(word_a, word_b)] + \
               bigr_dict[(word_b, word_a)] + bigr_dict[(word_b, word_b)]
     return mi(c_l_ab, c_r_ab, c_ab_ab, N) + sum_l_ab + sum_r_ab
 
 
-def loss_count(wf, bigr_dict, unigr_dict, mi_dict, N):
-    """Losses calculation, formula from slide 131"""
+def loss_count(wf, bigr_dict, unigr_dict, mi_dict, word_list, N):
+    """Losses calculation, formula from slide 131, finding minimal loss"""
     L = {}
+    L_min = ("", 1000)
     sum_dict = calculate_sum(wf, bigr_dict, mi_dict)
-    for id_a in range(0, len(wf)):
-        for id_b in range(id_a + 1, len(wf)):   # so that not to repeat
+    for id_a in range(0, len(wf) - 1):
+        for id_b in range(id_a + 1, len(wf) - 1):   # so that not to repeat
             word_a = wf[id_a]
             word_b = wf[id_b]
             sub = calculate_sub(sum_dict, mi_dict, word_a, word_b)
-            add = calculate_add(word_a, word_b, unigr_dict, bigr_dict, N)
+            add = calculate_add(word_a, word_b, unigr_dict, bigr_dict, word_list, N)
             L[(word_a, word_b)] = sub - add
+            if L_min[1] > L[(word_a, word_b)]:
+                L_min = ((word_a, word_b), L[(word_a, word_b)])
+    return L_min
 
 
 def out(text, mode, word_limit, class_limit):
@@ -99,11 +109,21 @@ def out(text, mode, word_limit, class_limit):
         if unigr_dict[word] >= 10.:
             classes[word] = word
 
+    # Set of left and right positioned words
+    word_l, word_r = [], []
+    for bigram in bigr_dict:
+        word_l.append(bigram[0])
+        word_r.append(bigram[1])
+    word_l, word_r = set(word_l), set(word_r)
+
+
     mi_dict = {}
     while len(classes) != class_limit:
         mi_dict = mi_sum(unigr_dict, bigr_dict, mi_dict, N)
 
-        loss_count(classes.keys(), bigr_dict, unigr_dict, mi_dict, N)
+        L_min = loss_count(sorted(list(classes.keys())), bigr_dict, unigr_dict, mi_dict, [word_l, word_r], N)
+        print(L_min)
+
 
         # count = 0
         # for key in mi_dict:
