@@ -2,16 +2,18 @@ from best_friends import *
 import math
 
 
-def read_txt(filename, mode, limit):
+def read_txt(filename, mode):
     """Reading input file and dividing into two groups of tokens (limited and all)"""
     tokens = []
-    with open(filename, encoding="iso8859_2") as f:
+    with open(filename, encoding="utf-8") as f:
         for line in f:
             if mode == "w":
                 tokens.append(line.strip().split("/")[0])
             else:
                 tokens.append(line.strip().split("/")[1])
-        return tokens[:limit]
+        if mode == "w":
+            tokens = tokens[:8000]
+        return tokens
 
 
 def mi(c_x, c_y, c_xy, N):
@@ -21,9 +23,11 @@ def mi(c_x, c_y, c_xy, N):
 
 def mi_sum(unigr_dict, bigr_dict, mi_dict, N):
     """Summing MI for all bigrams in a text and writing each to a dictionary"""
+    mi_value = 0
     for bigram in bigr_dict:
         mi_dict[bigram] = mi(unigr_dict[bigram[0]], unigr_dict[bigram[1]], bigr_dict[bigram], N)
-    return mi_dict
+        mi_value += mi_dict[bigram]
+    return mi_dict, mi_value
 
 
 def calculate_sum(wf, bigr_dict, mi_dict):
@@ -86,14 +90,55 @@ def loss_count(wf, bigr_dict, unigr_dict, mi_dict, word_list, N):
     return L_min
 
 
-def out(text, mode, word_limit, class_limit):
-    """Printing out the results"""
+def merge_classes(unigr_dict, bigr_dict, word_list, classes, L_min):
+    """Updating dictionaries of counts and history of class merges"""
+    word_a = L_min[0][0]
+    word_b = L_min[0][1]
+
+    # Merge unigram counts
+    unigr_dict[word_a] += unigr_dict[word_b]
+    del unigr_dict[word_b]
+    word_list[0].remove(word_b)
+    word_list[1].remove(word_b)
+
+    # Merge bigram counts
+    for bigram in list(bigr_dict):
+        if bigram[0] == word_b or bigram[1] == word_b:
+            if bigram[0] == word_b:
+                change_to_0 = word_a
+                change_from_0 = word_b
+            else:
+                change_to_0 = bigram[0]
+                change_from_0 = bigram[0]
+            if bigram[1] == word_b:
+                change_to_1 = word_a
+                change_from_1 = word_b
+            else:
+                change_to_1 = bigram[1]
+                change_from_1 = bigram[1]
+            bigr_dict[(change_to_0, change_to_1)] += bigr_dict[(change_from_0, change_from_1)]
+            del bigr_dict[(change_from_0, change_from_1)]
+
+    # Merge classes
+    classes[word_a] = classes[word_a] + " " + classes[word_b]
+    del classes[word_b]
+
+    return classes, word_list[0], word_list[1], unigr_dict, bigr_dict
+
+
+def hierarchy_build(text, mode, class_limit):
+    """Performing the hierarchy clustering"""
+    f = open(text + mode + ".txt", "w", encoding="utf-8")
+
     print("=" * 30)
     print("Text " + text)
     print("=" * 30)
+    f.write("=" * 30)
+    f.write("Text " + text)
+    f.write("=" * 30)
 
     # Get tokens
-    tokens = read_txt(text, mode, word_limit)
+    tokens = read_txt(text, mode)
     N = float(len(tokens))
     print("Tokens", N)
 
@@ -105,8 +150,12 @@ def out(text, mode, word_limit, class_limit):
 
     # Create class for every word
     classes = {}
-    for word in unigr_dict:     # use limit 10 for building classes
-        if unigr_dict[word] >= 10.:
+    if mode == "w":
+        cut = 10    # use limit 10 for building classes of words
+    else:
+        cut = 5     # use limit 5 for building classes of tags
+    for word in unigr_dict:
+        if unigr_dict[word] >= cut:
             classes[word] = word
 
     # Set of left and right positioned words
@@ -116,27 +165,29 @@ def out(text, mode, word_limit, class_limit):
         word_r.append(bigram[1])
     word_l, word_r = set(word_l), set(word_r)
 
-
     mi_dict = {}
     while len(classes) != class_limit:
-        mi_dict = mi_sum(unigr_dict, bigr_dict, mi_dict, N)
-
-        L_min = loss_count(sorted(list(classes.keys())), bigr_dict, unigr_dict, mi_dict, [word_l, word_r], N)
+        print("Number of classes", len(classes))
+        f.write("Number of classes" + str(len(classes)))
+        mi_dict, mi_value = mi_sum(unigr_dict, bigr_dict, mi_dict, N)
+        print("MI", mi_value)
+        f.write("MI" + str(mi_value))
+        L_min = loss_count(list(classes.keys()), bigr_dict, unigr_dict, mi_dict, [word_l, word_r], N)
         print(L_min)
-
-
-        # count = 0
-        # for key in mi_dict:
-        #     if count == 10:
-        #         break
-        #     print(key, mi_dict[key])
-        #     count += 1
-        break
-
+        f.write(str(L_min))
+        classes, word_l, word_r, unigr_dict, bigr_dict = merge_classes(unigr_dict, bigr_dict,
+                                                                       [word_l, word_r], classes, L_min)
+    f.close()
 
 
 if __name__ == "__main__":
     cz_text = "TEXTCZ1.ptg"
     en_text = "TEXTEN1.ptg"
 
-    out(en_text, "w", 8000, 15)       # English for words
+    hierarchy_build(en_text, "w", 15)       # English for words
+    hierarchy_build(cz_text, "w", 15)       # Czech for words
+
+    hierarchy_build(en_text, "t", 1)    # English for tags
+    hierarchy_build(cz_text, "t", 1)    # Czech for tags
+
+
