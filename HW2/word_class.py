@@ -2,18 +2,16 @@ from best_friends import *
 import math
 
 
-def read_txt(filename, mode):
+def read_txt(filename, mode, limit):
     """Reading input file and dividing into two groups of tokens (limited and all)"""
-    tokens = []
-    with open(filename, encoding="utf-8") as f:
+    tokens = ["<s>"]
+    with open(filename, encoding="iso8859_2") as f:
         for line in f:
             if mode == "w":
                 tokens.append(line.strip().split("/")[0])
             else:
                 tokens.append(line.strip().split("/")[1])
-        if mode == "w":
-            tokens = tokens[:8000]
-        return tokens
+        return tokens[:limit + 1]
 
 
 def mi(c_x, c_y, c_xy, N):
@@ -30,17 +28,18 @@ def mi_sum(unigr_dict, bigr_dict, mi_dict, N):
     return mi_dict, mi_value
 
 
+def check_key(key, dict):
+    """Checking the presence in a dictionary"""
+    return dict[key] if key in dict else 0
+
+
 def calculate_sum(wf, bigr_dict, mi_dict):
     """Summation part, formula on slide 127"""
     sum_dict = {}
     for word in wf:
-        sum_dict[word] = sum(mi_dict[bigram] for bigram in bigr_dict if bigram[0] == word or bigram[1] == word)
+        sum_dict[word] = sum(mi_dict[bigram] for bigram in bigr_dict if bigram[0] == word or bigram[1] == word) \
+                         - check_key((word, word), mi_dict)
     return sum_dict
-
-
-def check_key(key, dict):
-    """Checking the presence in a dictionary"""
-    return dict[key] if key in dict else 0
 
 
 def calculate_sub(sum_dict, mi_dict, word_a, word_b):
@@ -126,19 +125,19 @@ def merge_classes(unigr_dict, bigr_dict, word_list, classes, L_min):
     return classes, word_list[0], word_list[1], unigr_dict, bigr_dict
 
 
-def hierarchy_build(text, mode, class_limit):
+def hierarchy_build(text, mode, limit):
     """Performing the hierarchy clustering"""
     f = open(text + mode + ".txt", "w", encoding="utf-8")
 
     print("=" * 30)
     print("Text " + text)
     print("=" * 30)
-    f.write("=" * 30)
-    f.write("Text " + text)
-    f.write("=" * 30)
+    f.write("=" * 30 + "\n")
+    f.write("Text " + text + "\n")
+    f.write("=" * 30 + "\n")
 
     # Get tokens
-    tokens = read_txt(text, mode)
+    tokens = read_txt(text, mode, limit)
     N = float(len(tokens))
     print("Tokens", N)
 
@@ -166,15 +165,15 @@ def hierarchy_build(text, mode, class_limit):
     word_l, word_r = set(word_l), set(word_r)
 
     mi_dict = {}
-    while len(classes) != class_limit:
+    while len(classes) >= 15:
         print("Number of classes", len(classes))
-        f.write("Number of classes" + str(len(classes)))
+        f.write("Number of classes " + str(len(classes)) + "\n")
         mi_dict, mi_value = mi_sum(unigr_dict, bigr_dict, mi_dict, N)
         print("MI", mi_value)
-        f.write("MI" + str(mi_value))
+        f.write("MI " + str(mi_value) + "\n")
         L_min = loss_count(list(classes.keys()), bigr_dict, unigr_dict, mi_dict, [word_l, word_r], N)
         print(L_min)
-        f.write(str(L_min))
+        f.write(str(L_min) + "\n")
         classes, word_l, word_r, unigr_dict, bigr_dict = merge_classes(unigr_dict, bigr_dict,
                                                                        [word_l, word_r], classes, L_min)
     f.close()
@@ -184,10 +183,8 @@ if __name__ == "__main__":
     cz_text = "TEXTCZ1.ptg"
     en_text = "TEXTEN1.ptg"
 
-    hierarchy_build(en_text, "w", 15)       # English for words
-    hierarchy_build(cz_text, "w", 15)       # Czech for words
-
-    hierarchy_build(en_text, "t", 1)    # English for tags
-    hierarchy_build(cz_text, "t", 1)    # Czech for tags
-
-
+    hierarchy_build(en_text, "w", 8000)       # English for 8000 words
+    # hierarchy_build(cz_text, "w", 8000)       # Czech for 8000 words
+    #
+    # hierarchy_build(en_text, "t", -1)    # English for all tags
+    # hierarchy_build(cz_text, "t", 30000)    # Czech for tags
