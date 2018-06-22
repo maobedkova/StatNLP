@@ -20,8 +20,9 @@ def mi(c_x, c_y, c_xy, N):
     return (c_xy / N) * math.log((c_xy * N) / (c_x * c_y), 2) if (c_xy * N) / (c_x * c_y) > 0 else 0
 
 
-def mi_sum(unigr_left, unigr_right, bigr_dict, mi_dict, N):
+def mi_sum(unigr_left, unigr_right, bigr_dict, N):
     """Summing MI for all bigrams in a text and writing each to a dictionary"""
+    mi_dict = {}
     for bigram in bigr_dict:
         mi_dict[bigram] = mi(unigr_left[bigram[0]], unigr_right[bigram[1]], bigr_dict[bigram], N)
     return mi_dict
@@ -162,12 +163,11 @@ def hierarchy_build(text, mode, limit):
         unigr_left[bigram[0]] += count
         unigr_right[bigram[1]] += count
 
-    mi_dict = {}
     while len(classes) >= 15:
         print("Number of classes", len(classes))
         f.write("Number of classes " + str(len(classes)) + "\n")
 
-        mi_dict = mi_sum(unigr_left, unigr_right, bigr_dict, mi_dict, N)
+        mi_dict = mi_sum(unigr_left, unigr_right, bigr_dict, N)
         print("MI", sum(mi_dict.values()))
         f.write("MI " + str(sum(mi_dict.values())) + "\n")
 
@@ -189,5 +189,5 @@ if __name__ == "__main__":
     hierarchy_build(en_text, "w", 8000)       # English for 8000 words
     hierarchy_build(cz_text, "w", 8000)       # Czech for 8000 words
 
-    hierarchy_build(en_text, "t", -1)    # English for all tags
+    hierarchy_build(en_text, "t", -1)       # English for all tags
     hierarchy_build(cz_text, "t", 30000)    # Czech for tags
