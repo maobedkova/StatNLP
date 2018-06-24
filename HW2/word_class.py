@@ -130,7 +130,7 @@ def merge_classes(unigr_dict, unigr_left, unigr_right, bigr_dict, classes, L_min
 
 def hierarchy_build(text, mode, limit):
     """Performing the hierarchy clustering"""
-    f = open(text + mode + ".txt", "w", encoding="iso8859_2")
+    f = open(text + "_" + mode + ".txt", "w", encoding="iso8859_2")
 
     print("=" * 30)
     print("Text " + text)
@@ -169,22 +169,22 @@ def hierarchy_build(text, mode, limit):
         # Write down members of 15 classes
         if len(classes) == 15:
             print("Members of 15 classes")
-            with open(text + "_classes.txt", "w", encoding="iso8859_2") as w:
+            with open(text + "_" + mode + "_classes.txt", "w", encoding="iso8859_2") as w:
                 print("\n".join(classes.values()))
                 w.write("\n".join(classes.values()))
 
         print("Number of classes", len(classes))
-        f.write("Number of classes " + str(len(classes)) + "\n")
+        f.write(str(len(classes)) + " ")
 
         # Calculate table of MI values for bigrams
         mi_dict = mi_sum(unigr_left, unigr_right, bigr_dict, N)
         print("MI", sum(mi_dict.values()))
-        f.write("MI " + str(sum(mi_dict.values())) + "\n")
+        f.write(str(sum(mi_dict.values())) + " ")
 
         # Calculate loss
         L_min = loss_count(list(classes.keys()), bigr_dict, mi_dict, unigr_dict, unigr_left, unigr_right, N)
         print(L_min)
-        f.write(str(L_min) + "\n")
+        f.write(str(L_min[1]) + " " + str(" + ".join(L_min[0])) + "\n")
 
         # Merge classes and update dictionaries
         classes, unigr_left, unigr_right, unigr_dict, bigr_dict = merge_classes(unigr_dict, unigr_left,
