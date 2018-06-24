@@ -33,11 +33,12 @@ def check_key(key, dict):
     return dict[key] if key in dict else 0
 
 
-def calculate_sum(wf, bigr_dict, mi_dict):
+def calculate_sum(unigr_dict, bigr_dict, mi_dict):
     """Summation part, formula on slide 127"""
     sum_dict = {}
-    for word in wf:
-        sum_dict[word] = sum(mi_dict[bigram] for bigram in bigr_dict if bigram[0] == word or bigram[1] == word) \
+    for word in unigr_dict:
+        sum_dict[word] = sum(mi_dict[bigram] for bigram in bigr_dict if bigram[0] == word) + \
+                         sum(mi_dict[bigram] for bigram in bigr_dict if bigram[1] == word) \
                          - check_key((word, word), mi_dict)
     return sum_dict
 
@@ -75,10 +76,10 @@ def calculate_add(word_a, word_b, unigr_dict, unigr_left, unigr_right, bigr_dict
 def loss_count(classes, bigr_dict, mi_dict, unigr_dict, unigr_left, unigr_right, N):
     """Losses calculation, formula from slide 131, finding minimal loss"""
     L = {}
-    L_min = ("", 1000)
-    sum_dict = calculate_sum(classes, bigr_dict, mi_dict)
-    for id_a in range(0, len(classes) - 1):
-        for id_b in range(id_a + 1, len(classes) - 1):   # so that not to repeat
+    L_min = ("", 1.)
+    sum_dict = calculate_sum(unigr_dict, bigr_dict, mi_dict)
+    for id_a in range(0, len(classes)):
+        for id_b in range(id_a + 1, len(classes)):   # so that not to repeat
             word_a = classes[id_a]
             word_b = classes[id_b]
             sub = calculate_sub(sum_dict, mi_dict, word_a, word_b)
@@ -129,7 +130,7 @@ def merge_classes(unigr_dict, unigr_left, unigr_right, bigr_dict, classes, L_min
 
 def hierarchy_build(text, mode, limit):
     """Performing the hierarchy clustering"""
-    f = open(text + mode + ".txt", "w", encoding="utf-8")
+    f = open(text + mode + ".txt", "w", encoding="iso8859_2")
 
     print("=" * 30)
     print("Text " + text)
@@ -163,19 +164,29 @@ def hierarchy_build(text, mode, limit):
         unigr_left[bigram[0]] += count
         unigr_right[bigram[1]] += count
 
-    while len(classes) >= 15:
+    # Clusterizaton
+    while len(classes) > 1:
+        # Write down members of 15 classes
+        if len(classes) == 15:
+            print("Members of 15 classes")
+            with open(text + "_classes.txt", "w", encoding="iso8859_2") as w:
+                print("\n".join(classes.values()))
+                w.write("\n".join(classes.values()))
+
         print("Number of classes", len(classes))
         f.write("Number of classes " + str(len(classes)) + "\n")
 
+        # Calculate table of MI values for bigrams
         mi_dict = mi_sum(unigr_left, unigr_right, bigr_dict, N)
         print("MI", sum(mi_dict.values()))
         f.write("MI " + str(sum(mi_dict.values())) + "\n")
 
-        L_min = loss_count(list(classes.keys()), bigr_dict, mi_dict, unigr_dict,
-                           unigr_left, unigr_right, N)
+        # Calculate loss
+        L_min = loss_count(list(classes.keys()), bigr_dict, mi_dict, unigr_dict, unigr_left, unigr_right, N)
         print(L_min)
         f.write(str(L_min) + "\n")
 
+        # Merge classes and update dictionaries
         classes, unigr_left, unigr_right, unigr_dict, bigr_dict = merge_classes(unigr_dict, unigr_left,
                                                                                 unigr_right, bigr_dict,
                                                                                 classes, L_min)
@@ -189,5 +200,5 @@ if __name__ == "__main__":
     hierarchy_build(en_text, "w", 8000)       # English for 8000 words
     hierarchy_build(cz_text, "w", 8000)       # Czech for 8000 words
 
-    hierarchy_build(en_text, "t", -1)       # English for all tags
-    hierarchy_build(cz_text, "t", 30000)    # Czech for tags
+    hierarchy_build(en_text, "t", -2)       # English for all tags
+    hierarchy_build(cz_text, "t", 40000)    # Czech for tags
