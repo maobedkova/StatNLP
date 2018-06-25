@@ -130,7 +130,7 @@ def merge_classes(unigr_dict, unigr_left, unigr_right, bigr_dict, classes, L_min
 
 def hierarchy_build(text, mode, limit):
     """Performing the hierarchy clustering"""
-    f = open(text + "_" + mode + ".txt", "w", encoding="iso8859_2")
+    f = open(text + "_" + mode + ".txt", "w", encoding="utf-8")
 
     print("=" * 30)
     print("Text " + text)
@@ -169,7 +169,7 @@ def hierarchy_build(text, mode, limit):
         # Write down members of 15 classes
         if len(classes) == 15:
             print("Members of 15 classes")
-            with open(text + "_" + mode + "_classes.txt", "w", encoding="iso8859_2") as w:
+            with open(text + "_" + mode + "_classes.txt", "w", encoding="utf-8") as w:
                 print("\n".join(classes.values()))
                 w.write("\n".join(classes.values()))
 
