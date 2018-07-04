@@ -13,5 +13,12 @@ Homework for Statistical NLP class of Charles University.
 
 #### Words and The Company They Keep
 
-- Q1: *PMI of a text* (cz & en) (finding best association pairs with PMI)
-- Q2: *Hierarchy of words and tags* (cz & en) (algorithm from Brown et al. paper, MI)
+- Q1: *Best Friends* (cz & en) (finding best association pairs with PMI)
+- Q2: *Word and Tag Classes* (cz & en) (Hierarchy of words and tags using MI, algorithm from Brown et al. paper)
+
+
+### HW3
+
+#### Tagging
+
+- Q1: *Brill's Tagger & Tagger Evaluation* (nltk Brill`s tagger implementation)
