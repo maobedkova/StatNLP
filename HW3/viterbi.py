@@ -59,7 +59,7 @@ def viterbi(sent, states, alpha, n, n_path):
         for state in states:
             tmp_probs = dict(((hist2, hist1), T[stage_id - 1][(hist2, hist1)] * tpc.trans_probs(hist2, hist1, state) *
                               lpc.emis_probs(sent[stage_id][0], state))
-                             for hist2, hist1, in sorted(T[stage_id - 1], key=T[stage_id - 1].get, reverse=True)[:n])
+                             for hist2, hist1 in sorted(T[stage_id - 1], key=T[stage_id - 1].get, reverse=True)[:n])
             # additional pruning based on n likeliest states
 
             # tmp_probs = dict(
@@ -132,5 +132,5 @@ if __name__ == "__main__":
         # alpha for pruning, n for pruning, n_path for backtracking
     else:
         states = set(str2tuple(token)[1] for token in tokens if len(token) > 10)  # all tags in the data
-        evaluate(S_sents, states, alpha=2 ** (-100), n=20, n_path=30)
+        evaluate(S_sents, states, alpha=2 ** (-100), n=5, n_path=5)
         # alpha for pruning, n for pruning, n_path for backtracking
