@@ -1,12 +1,13 @@
-import copy as cp
-import numpy as np
-from collections import defaultdict
-import pickle as pkl
-# import itertools as itr
 import argparse
+import copy as cp
+# import itertools as itr
+import numpy as np
+import pickle as pkl
+from collections import defaultdict
 from nltk.tag import str2tuple
 from smoothing import TriProbsCounts, BiProbsCounts, LexProbsCounts, InitProbsCounts
 from viterbi import viterbi, evaluate
+
 
 def read_txt(filename):
     """Reading input file"""
@@ -39,9 +40,9 @@ def get_obs_states(tokens):
     return obs, states
 
 
-def forward_backward(T, E, I, obs):
+def forward_backward(T, E, I, obs_ids):
     """Forward-Backward algorithm for Baum-Welch"""
-    N = len(obs)
+    N = len(obs_ids)
     (num_states, num_obs) = E.shape
 
     # Matrices initialization
@@ -56,16 +57,16 @@ def forward_backward(T, E, I, obs):
 
     # Forward pass
     F[:, 0] = I     # fill first column of forward probs with initial probs
-    for obs_id in range(num_obs):
+    for obs_id in range(N):
         f_row = np.matrix(F[:, obs_id])
-        F[:, obs_id + 1] = f_row * np.matrix(T) * np.matrix(np.diag(E[:, obs[obs_id]]))
+        F[:, obs_id + 1] = f_row * np.matrix(T) * np.matrix(np.diag(E[:, obs_ids[obs_id]]))
         F[:, obs_id + 1] = normalize(F[:, obs_id + 1])
 
     # Backward pass
     B[:, -1] = 1.0      # fill last column of backward probs with ones
-    for obs_id in range(num_obs, 0, -1):
+    for obs_id in range(N, 0, -1):
         b_col = np.matrix(B[:, obs_id]).transpose()
-        B[:, obs_id - 1] = (np.matrix(T) * np.matrix(np.diag(E[:, obs[obs_id - 1]])) * b_col).transpose()
+        B[:, obs_id - 1] = (np.matrix(T) * np.matrix(np.diag(E[:, obs_ids[obs_id - 1]])) * b_col).transpose()
         B[:, obs_id - 1] = normalize(B[:, obs_id - 1])
 
     # Final probabilities
@@ -90,11 +91,8 @@ def baum_welch(data):
     # Mapping
     # we will use numpy matrices for speeding up computations; thus we map words to indices
     obs_map_dict = dict((word, i) for i, word in enumerate(unique_obs))         # dict of observation id mappings
-    states_map_dict = dict((word, i) for i, word in enumerate(unique_states))   # dict of state id mappings
-    inv_obs_map_dict = {value: key for key, value in obs_map_dict.items()}      # invert dict to map from id to token
     map2id = lambda d, tokens: [d[token] for token in tokens]    # mapping function
     obs_ids = map2id(obs_map_dict, obs)             # indices for words for the whole text
-    states_ids = map2id(states_map_dict, states)    # indices for tags for the whole text
 
     # Matrices initialization
     # transition matrix (T) from state to state (num_states*num_states)
@@ -137,9 +135,7 @@ def baum_welch(data):
         # transition probabilities at each time
         # for a_id in range(num_bi_states):
         for a_id in range(num_states):
-            print("a", a_id)
             for b_id in range(num_states):
-                # print("b", b_id)
                 for c_id in range(len(obs)):
                     Theta[a_id, b_id, c_id] = F[a_id, c_id] * B[b_id, c_id + 1] * \
                                               old_T[a_id, b_id] * old_E[b_id, obs_ids[c_id]]
@@ -157,7 +153,7 @@ def baum_welch(data):
         # Update emission matrix (E)
         for a_id in range(num_states):
             for b_id in range(num_obs):
-                r_b_id = np.array(np.where(obs == b_id)) + 1
+                r_b_id = np.array(np.where(obs_ids == b_id)) + 1
                 E[a_id, b_id] = np.sum(P[a_id, r_b_id]) / np.sum(P[a_id, 1:])
         E = E / np.sum(E, 1)
         pkl.dump(E, open("emis_" + str(iteration), "wb"))   # backup E
