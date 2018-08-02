@@ -143,6 +143,7 @@ def baum_welch(data):
                 for c_id in range(len(obs)):
                     Theta[a_id, b_id, c_id] = F[a_id, c_id] * B[b_id, c_id + 1] * \
                                               old_T[a_id, b_id] * old_E[b_id, obs_ids[c_id]]
+        print("Theta updated.")
 
         # Update transition matrix (T)
         # for a_id in range(num_bi_states):
@@ -150,7 +151,8 @@ def baum_welch(data):
             for b_id in range(num_states):
                 T[a_id, b_id] = np.sum(Theta[a_id, b_id, :]) / np.sum(P[a_id, :])
         T = T / np.sum(T, 1)
-        pkl.dump(T, open("trans_" + iteration, "wb"))   # backup T
+        pkl.dump(T, open("trans_" + str(iteration), "wb"))   # backup T
+        print("T updated.")
 
         # Update emission matrix (E)
         for a_id in range(num_states):
@@ -158,9 +160,12 @@ def baum_welch(data):
                 r_b_id = np.array(np.where(obs == b_id)) + 1
                 E[a_id, b_id] = np.sum(P[a_id, r_b_id]) / np.sum(P[a_id, 1:])
         E = E / np.sum(E, 1)
-        pkl.dump(E, open("emis_" + iteration, "wb"))   # backup E
+        pkl.dump(E, open("emis_" + str(iteration), "wb"))   # backup E
+        print("E updated.")
 
         # Check convergence
+        print("T diff", old_T - T)
+        print("E diff", old_E - E)
         if np.linalg.norm(old_T - T) < .001 and np.linalg.norm(old_E - E) < .001:
             converged = True
 
