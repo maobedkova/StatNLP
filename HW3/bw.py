@@ -1,10 +1,12 @@
 import copy as cp
 import numpy as np
+from collections import defaultdict
 import pickle as pkl
+# import itertools as itr
 import argparse
 from nltk.tag import str2tuple
-from smoothing import TriProbsCounts, LexProbsCounts, InitProbsCounts
-
+from smoothing import TriProbsCounts, BiProbsCounts, LexProbsCounts, InitProbsCounts
+from viterbi import viterbi, evaluate
 
 def read_txt(filename):
     """Reading input file"""
@@ -21,6 +23,13 @@ def split_data(tokens):
     sup_T = tokens[:10000]  # train for supervised part of BW
     unsup_T = tokens[10000:-60000]  # train for unsupervised part of BW
     return S, H, sup_T, unsup_T
+
+
+def split_sentences(tokens):
+    """Splitting data into sentences"""
+    sentences = [[str2tuple(token) for token in sent.split("\n") if token != ""]
+                 for sent in "\n".join(tokens).split("###/###")]
+    return [sentence for sentence in sentences if sentence != []]
 
 
 def get_obs_states(tokens):
@@ -70,31 +79,47 @@ def baum_welch(data):
     """Baum-Welch algorithm"""
     obs, states = get_obs_states(data)
     obs, states = np.array(obs), np.array(states)
-
-    num_obs = len(set(obs))
-    num_states = len(set(states))
+    unique_obs = list(set(obs))
+    unique_states = list(set(states))
+    # unique_bi_states = list(set(itr.product(unique_states, repeat=2)))
+    # we won`t use trigram model for BW (too time- and memory-consuming); I couldn`t even initialize Theta matrix
+    num_obs = len(unique_obs)
+    num_states = len(unique_states)
+    # num_bi_states = len(unique_bi_states)
 
     # Mapping
     # we will use numpy matrices for speeding up computations; thus we map words to indices
-    obs_map_dict = dict((word, i) for i, word in enumerate(set(obs)))           # dict of observation id mappings
-    states_map_dict = dict((word, i) for i, word in enumerate(set(states)))     # dict of state id mappings
+    obs_map_dict = dict((word, i) for i, word in enumerate(unique_obs))         # dict of observation id mappings
+    states_map_dict = dict((word, i) for i, word in enumerate(unique_states))   # dict of state id mappings
+    inv_obs_map_dict = {value: key for key, value in obs_map_dict.items()}      # invert dict to map from id to token
     map2id = lambda d, tokens: [d[token] for token in tokens]    # mapping function
     obs_ids = map2id(obs_map_dict, obs)             # indices for words for the whole text
     states_ids = map2id(states_map_dict, states)    # indices for tags for the whole text
 
     # Matrices initialization
     # transition matrix (T) from state to state (num_states*num_states)
+    # T = np.ones((num_bi_states, num_states, num_states))
+    # for i in range(num_bi_states):
+    #     for j in range(num_states):
+    #         T[i, j] = tpc.trans_probs(unique_bi_states[i][0], unique_bi_states[i][1], states[j])
     T = np.ones((num_states, num_states))
-    T = T / num_states    # uniform probs init bcz can`t fill with what we have
+    for i in range(num_states):
+        for j in range(num_states):
+            T[i, j] = bpc.trans_probs(unique_states[i], unique_states[j])
+
     # emission matrix (E) from observation to state (num_states*num_obs)
     E = np.ones((num_states, num_obs))
     for i in range(num_states):
         for j in range(num_obs):
-            E[i, j] = lpc.emis_probs(obs[j], states[i])
+            E[i, j] = lpc.emis_probs(unique_obs[j], unique_states[i])
+
     # initial probabilities matrix (I)
-    init_iterable = (ipc.init_probs("", states[i]) for i in range(num_states))
-    I = np.fromiter(init_iterable, float)
+    I = np.ones((num_states))
+    for i in range(num_states):
+        I[i] = ipc.init_probs("", unique_states[i])
+
     # matrix of probabilities of being at state a at time j and b at time j+1
+    # Theta = np.zeros((num_bi_states, num_states, len(obs)))
     Theta = np.zeros((num_states, num_states, len(obs)))
 
     print("Learning started.")
@@ -108,18 +133,19 @@ def baum_welch(data):
         # Expectation step
         P, F, B = forward_backward(old_T, old_E, I, obs_ids)
         print("Forward-Backward finished.")
-        T = np.ones((num_states, num_states))
-        E = np.ones((num_states, num_obs))
 
         # transition probabilities at each time
+        # for a_id in range(num_bi_states):
         for a_id in range(num_states):
-            print(a_id)
+            print("a", a_id)
             for b_id in range(num_states):
+                # print("b", b_id)
                 for c_id in range(len(obs)):
                     Theta[a_id, b_id, c_id] = F[a_id, c_id] * B[b_id, c_id + 1] * \
                                               old_T[a_id, b_id] * old_E[b_id, obs_ids[c_id]]
 
         # Update transition matrix (T)
+        # for a_id in range(num_bi_states):
         for a_id in range(num_states):
             for b_id in range(num_states):
                 T[a_id, b_id] = np.sum(Theta[a_id, b_id, :]) / np.sum(P[a_id, :])
@@ -138,7 +164,21 @@ def baum_welch(data):
         if np.linalg.norm(old_T - T) < .001 and np.linalg.norm(old_E - E) < .001:
             converged = True
 
-    return T, E
+    def transform2dict(matrix, iter1, iter2, iter1_arr, iter2_arr):
+        """Transformation from matrix to dictionary"""
+        probs = defaultdict(float)
+        # for a_id in range(num_bi_states):
+        for a_id in range(iter1):
+            for b_id in range(iter2):
+                # probs[(unique_bi_states[a_id][0], unique_bi_states[a_id][1], unique_states[b_id])]
+                # = matrix[a_id, b_id]
+                probs[(iter1_arr[a_id], iter2_arr[b_id])] = matrix[a_id, b_id]
+        return probs
+
+    trans_probs = transform2dict(T, num_states, num_states, unique_states, unique_states)
+    emis_probs = transform2dict(E, num_states, num_obs, unique_states, unique_obs)
+
+    return trans_probs, emis_probs
 
 
 if __name__ == "__main__":
@@ -153,15 +193,37 @@ if __name__ == "__main__":
     # Estimating parameters
 
     # Smoothing trigram model (linear interpolation)
-    tpc = TriProbsCounts(get_obs_states(sup_T)[1])
-    tpc.EM(get_obs_states(H)[1])
+    # tpc = TriProbsCounts(get_obs_states(sup_T)[1])
+    # tpc.EM(get_obs_states(H)[1])
+    bpc = BiProbsCounts(get_obs_states(sup_T)[1])
+    bpc.EM(get_obs_states(H)[1])
 
     # Smoothing lexical model (add lambda)
-    lpc = LexProbsCounts(sup_T)
+    lpc = LexProbsCounts(sup_T)     # used in BW as raw params
 
     # Smoothing unigram model (add lambda)
-    ipc = InitProbsCounts(sup_T)
+    ipc = InitProbsCounts(sup_T)    # used in BW as raw params
 
     # === UNSUPERVISED PART ===
 
-    baum_welch(unsup_T)
+    # Learning parameters
+    trans_probs, emis_probs = baum_welch(unsup_T)
+
+    # Smoothing transition probabilities
+    bpc.bigr_probs = trans_probs
+
+    # Smoothing lexical probabilities
+    lpc.w_t_counts = emis_probs
+
+    # === DECODING PART ===
+
+    S_sents = split_sentences(S)
+
+    if "en" in args.text:
+        states = set(str2tuple(token)[1] for token in tokens)  # all tags in the data
+        evaluate(S_sents, states, alpha=2 ** (-70), n=20, n_path=30)
+        # alpha for pruning, n for pruning, n_path for backtracking
+    else:
+        states = set(str2tuple(token)[1] for token in tokens if len(token) > 10)  # all tags in the data
+        evaluate(S_sents, states, alpha=2 ** (-100), n=5, n_path=5)
+        # alpha for pruning, n for pruning, n_path for backtracking

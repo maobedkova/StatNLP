@@ -57,8 +57,8 @@ class TriProbsCounts:
         while all(el > 0.00001 for el in np.absolute(np.subtract(old_lambdas, self.lambdas))):
             old_lambdas = copy.deepcopy(self.lambdas)
             # Create histories
-            hist1 = "ujudeg"
-            hist2 = "rtyujo"
+            hist1 = "###"
+            hist2 = "###"
             for word in H:
                 p0, p1, p2, p3 = self.get_probs(hist2, hist1, word)
                 # Compute smoothed prob
@@ -81,7 +81,7 @@ class TriProbsCounts:
         hist1 = "###"
         hist2 = "###"
         for word in data:
-            p0, p1, p2, p3 = self.get_probs(word, hist1, hist2)
+            p0, p1, p2, p3 = self.get_probs(hist2, hist1, word)
             # Compute smoothed prob
             p_lambda = self.lambdas[0] * p0 + self.lambdas[1] * p1 + self.lambdas[2] * p2 + self.lambdas[3] * p3
             # Rewrite probabilities
@@ -130,6 +130,12 @@ class LexProbsCounts:
         """Getting an emission probability for Viterbi decoding"""
         return self.get_probs(word, tag)
 
+    def emis_probs_BW(self, word, tag):
+        """Getting an emission probability for Viterbi decoding after Baum-Welch"""
+        if (word, tag) in self.w_t_counts:
+            return self.w_t_counts[(tag, word)]
+        return 1. / self.V
+
 
 class InitProbsCounts(LexProbsCounts):
     def get_probs(self, word, tag):
@@ -139,3 +145,79 @@ class InitProbsCounts(LexProbsCounts):
     def init_probs(self, word, tag):
         """Getting an initial probability for Viterbi decoding"""
         return self.get_probs(word, tag)
+
+
+class BiProbsCounts:
+    """Class for handling probabilities"""
+    def __init__(self, tags):
+        """Getting uniform, unigram, bigram, trigram probs"""
+        # Get unigram counts and probs
+        self.unigr_counts = Counter(tags)
+        self.unigr_probs = defaultdict(float)
+        unigr_N = sum(self.unigr_counts.values())
+        for entry in self.unigr_counts:
+            self.unigr_probs[entry] = float(self.unigr_counts[entry]) / unigr_N
+
+        # Get bigram counts and probs
+        self.bigr_counts = Counter(nltk.bigrams(tags))
+        self.bigr_probs = defaultdict(float)
+        for entry in self.bigr_counts:
+            self.bigr_probs[entry] = float(self.bigr_counts[entry]) / self.unigr_counts[entry[0]]
+
+        # Get uniform probability
+        self.unif_prob = 1. / len(self.unigr_counts)
+
+    def get_probs(self, hist1, word):
+        """Getting probabilities for a word"""
+        # Get probability for a word. If not present in the data, prob == 0.0
+        p1 = self.unigr_probs[word]
+        p2 = self.bigr_probs[(hist1, word)]
+        # Assign uniform prob when history for a word is unknown
+        if p2 == 0.:
+            p2 = 1. / len(self.unigr_probs) if self.unigr_probs[hist1] == 0. else 0.
+        return self.unif_prob, p1, p2
+
+    def EM(self, H):
+        """Smoothing EM algorithm: obtain lambdas"""
+        # Initialize probability dictionaries
+        self.lambdas = [0.25, 0.25, 0.25, 0.25]    # initial lambdas
+        expected_lambdas = [0., 0., 0., 0.]
+        old_lambdas = [0., 0., 0., 0.]
+        # While changes of lambdas are significant
+        while all(el > 0.00001 for el in np.absolute(np.subtract(old_lambdas, self.lambdas))):
+            old_lambdas = copy.deepcopy(self.lambdas)
+            # Create histories
+            hist1 = "###"
+            for word in H:
+                p0, p1, p2 = self.get_probs(hist1, word)
+                # Compute smoothed prob
+                p_lambda = self.lambdas[0] * p0 + self.lambdas[1] * p1 + self.lambdas[2] * p2
+                # Update histories
+                hist1 = word
+                # Compute expected counts of lambdas
+                expected_lambdas[0] += (self.lambdas[0] * p0 / p_lambda)
+                expected_lambdas[1] += (self.lambdas[1] * p1 / p_lambda)
+                expected_lambdas[2] += (self.lambdas[2] * p2 / p_lambda)
+            # Recompute lambdas
+            self.lambdas = [el / sum(expected_lambdas) for el in expected_lambdas]
+
+    def bigr_smooth(self, data):
+        """Smoothing of the whole language model using computed lambdas"""
+        p_smoothed = defaultdict(float)
+        # Create histories
+        hist1 = "###"
+        for word in data:
+            p0, p1, p2 = self.get_probs(hist1, word)
+            # Compute smoothed prob
+            p_lambda = self.lambdas[0] * p0 + self.lambdas[1] * p1 + self.lambdas[2] * p2
+            # Rewrite probabilities
+            p_smoothed[(hist1, word)] = p_lambda
+            # Update histories
+            hist1 = word
+        return p_smoothed
+
+    def trans_probs(self, hist1, word):
+        """Getting a transition probability for Viterbi decoding"""
+        p0, p1, p2 = self.get_probs(hist1, word)
+        p_lambda = self.lambdas[0] * p0 + self.lambdas[1] * p1 + self.lambdas[2] * p2
+        return p_lambda
