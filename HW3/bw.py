@@ -73,15 +73,15 @@ def forward_backward(T, E, I, obs_ids):
     P = np.array(F) * np.array(B)
     P = P / np.sum(P, 0)
 
-    return F, B, P
+    return P, F, B
 
 
 def baum_welch(data):
     """Baum-Welch algorithm"""
     obs, states = get_obs_states(data)
     obs, states = np.array(obs), np.array(states)
-    unique_obs = list(set(obs))
-    unique_states = list(set(states))
+    unique_obs = list(sorted(set(obs)))
+    unique_states = list(sorted(set(states)))
     # unique_bi_states = list(set(itr.product(unique_states, repeat=2)))
     # we won`t use trigram model for BW (too time- and memory-consuming); I couldn`t even initialize Theta matrix
     num_obs = len(unique_obs)
@@ -91,8 +91,9 @@ def baum_welch(data):
     # Mapping
     # we will use numpy matrices for speeding up computations; thus we map words to indices
     obs_map_dict = dict((word, i) for i, word in enumerate(unique_obs))         # dict of observation id mappings
+    inv_obs_map_dict = dict((value, key) for key, value in obs_map_dict.items())    # invert dict to map from id to token
     map2id = lambda d, tokens: [d[token] for token in tokens]    # mapping function
-    obs_ids = map2id(obs_map_dict, obs)             # indices for words for the whole text
+    obs_ids = np.array(map2id(obs_map_dict, obs))            # indices for words for the whole text
 
     # Matrices initialization
     # transition matrix (T) from state to state (num_states*num_states)
@@ -109,10 +110,10 @@ def baum_welch(data):
     E = np.ones((num_states, num_obs))
     for i in range(num_states):
         for j in range(num_obs):
-            E[i, j] = lpc.emis_probs(unique_obs[j], unique_states[i])
+            E[i, j] = lpc.emis_probs(inv_obs_map_dict[j], unique_states[i])
 
     # initial probabilities matrix (I)
-    I = np.ones((num_states))
+    I = np.ones(num_states)
     for i in range(num_states):
         I[i] = ipc.init_probs("", unique_states[i])
 
@@ -128,8 +129,12 @@ def baum_welch(data):
         print("Iteration", iteration)
         old_T = cp.deepcopy(T)
         old_E = cp.deepcopy(E)
+        # old_T = T
+        # old_E = E
+        # T = np.copy(T)
+        # E = np.copy(E)
         # Expectation step
-        P, F, B = forward_backward(old_T, old_E, I, obs_ids)
+        P, F, B = forward_backward(T, E, I, obs_ids)
         print("Forward-Backward finished.")
 
         # transition probabilities at each time
@@ -155,7 +160,8 @@ def baum_welch(data):
             for b_id in range(num_obs):
                 r_b_id = np.array(np.where(obs_ids == b_id)) + 1
                 E[a_id, b_id] = np.sum(P[a_id, r_b_id]) / np.sum(P[a_id, 1:])
-        E = E / np.sum(E, 1)
+        E = np.nan_to_num(E)
+        E = E / np.sum(E, 1).reshape(num_states, 1)
         pkl.dump(E, open("emis_" + str(iteration), "wb"))   # backup E
         print("E updated.")
 
