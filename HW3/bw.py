@@ -37,6 +37,9 @@ def get_obs_states(tokens):
     """Getting states (columns) and observations (rows) for trellis"""
     token_tuples = [str2tuple(token) for token in tokens]
     obs, states = zip(*token_tuples)
+    if "cz" in args.text:   # limit predictions because of memory error
+        new_states = [state[:3] for state in states if state]
+        states = new_states
     return obs, states
 
 
@@ -87,6 +90,7 @@ def baum_welch(data, iter_stopped):
     num_obs = len(unique_obs)
     num_states = len(unique_states)
     # num_bi_states = len(unique_bi_states)
+    print(len(unique_states))
 
     # Mapping
     # we will use numpy matrices for speeding up computations; thus we map words to indices
