@@ -76,7 +76,7 @@ def forward_backward(T, E, I, obs_ids):
     return P, F, B
 
 
-def baum_welch(data):
+def baum_welch(data, iter_stopped):
     """Baum-Welch algorithm"""
     obs, states = get_obs_states(data)
     obs, states = np.array(obs), np.array(states)
@@ -95,22 +95,30 @@ def baum_welch(data):
     map2id = lambda d, tokens: [d[token] for token in tokens]    # mapping function
     obs_ids = np.array(map2id(obs_map_dict, obs))            # indices for words for the whole text
 
-    # Matrices initialization
-    # transition matrix (T) from state to state (num_states*num_states)
-    # T = np.ones((num_bi_states, num_states, num_states))
-    # for i in range(num_bi_states):
-    #     for j in range(num_states):
-    #         T[i, j] = tpc.trans_probs(unique_bi_states[i][0], unique_bi_states[i][1], states[j])
-    T = np.ones((num_states, num_states))
-    for i in range(num_states):
-        for j in range(num_states):
-            T[i, j] = bpc.trans_probs(unique_states[i], unique_states[j])
+    if iter_stopped == 0:
+        # Matrices initialization
+        # transition matrix (T) from state to state (num_states*num_states)
+        # T = np.ones((num_bi_states, num_states, num_states))
+        # for i in range(num_bi_states):
+        #     for j in range(num_states):
+        #         T[i, j] = tpc.trans_probs(unique_bi_states[i][0], unique_bi_states[i][1], states[j])
+        T = np.ones((num_states, num_states))
+        for i in range(num_states):
+            for j in range(num_states):
+                T[i, j] = bpc.trans_probs(unique_states[i], unique_states[j])
 
-    # emission matrix (E) from observation to state (num_states*num_obs)
-    E = np.ones((num_states, num_obs))
-    for i in range(num_states):
-        for j in range(num_obs):
-            E[i, j] = lpc.emis_probs(inv_obs_map_dict[j], unique_states[i])
+        # emission matrix (E) from observation to state (num_states*num_obs)
+        E = np.ones((num_states, num_obs))
+        for i in range(num_states):
+            for j in range(num_obs):
+                E[i, j] = lpc.emis_probs(inv_obs_map_dict[j], unique_states[i])
+        iteration = 0
+    else:
+        with open("trans_" + iter_stopped - 1, "rb") as t:
+            T = pkl.load(t)
+        with open("emis_" + iter_stopped - 1, "rb") as e:
+            E = pkl.load(e)
+        iteration = iter_stopped
 
     # initial probabilities matrix (I)
     I = np.ones(num_states)
@@ -123,16 +131,11 @@ def baum_welch(data):
 
     print("Learning started.")
     converged = False
-    iteration = 0
     while not converged:
         iteration += 1
         print("Iteration", iteration)
         old_T = cp.deepcopy(T)
         old_E = cp.deepcopy(E)
-        # old_T = T
-        # old_E = E
-        # T = np.copy(T)
-        # E = np.copy(E)
         # Expectation step
         P, F, B = forward_backward(T, E, I, obs_ids)
         print("Forward-Backward finished.")
@@ -166,9 +169,11 @@ def baum_welch(data):
         print("E updated.")
 
         # Check convergence
-        print("T diff", old_T - T)
-        print("E diff", old_E - E)
-        if np.linalg.norm(old_T - T) < .001 and np.linalg.norm(old_E - E) < .001:
+        T_diff = np.linalg.norm(old_T - T)
+        E_diff = np.linalg.norm(old_E - E)
+        print("T diff", T_diff)
+        print("E diff", E_diff)
+        if T_diff < .001 and E_diff < .001:
             converged = True
 
     def transform2dict(matrix, iter1, iter2, iter1_arr, iter2_arr):
@@ -191,6 +196,7 @@ def baum_welch(data):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('--text', help="Text name")
+    parser.add_argument('--iter', help="On which iteration it has stopped", default=0)
     args = parser.parse_args()
 
     tokens = read_txt(args.text)
@@ -214,7 +220,7 @@ if __name__ == "__main__":
     # === UNSUPERVISED PART ===
 
     # Learning parameters
-    trans_probs, emis_probs = baum_welch(unsup_T)
+    trans_probs, emis_probs = baum_welch(unsup_T, args.iter)
 
     # Smoothing transition probabilities
     bpc.bigr_probs = trans_probs
