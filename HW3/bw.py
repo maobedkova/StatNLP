@@ -118,7 +118,7 @@ def baum_welch(data, iter_stopped):
             T = pkl.load(t)
         with open("emis_" + str(iter_stopped - 1), "rb") as e:
             E = pkl.load(e)
-        iteration = iter_stopped
+        iteration = iter_stopped - 1
 
     # initial probabilities matrix (I)
     I = np.ones(num_states)
@@ -165,6 +165,7 @@ def baum_welch(data, iter_stopped):
                 E[a_id, b_id] = np.sum(P[a_id, r_b_id]) / np.sum(P[a_id, 1:])
         E = np.nan_to_num(E)
         E = E / np.sum(E, 1).reshape(num_states, 1)
+        E = np.nan_to_num(E)
         pkl.dump(E, open("emis_" + str(iteration), "wb"))   # backup E
         print("E updated.")
 
