@@ -196,7 +196,7 @@ def baum_welch(data, iter_stopped):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('--text', help="Text name")
-    parser.add_argument('--iter', help="On which iteration it has stopped", default=0)
+    parser.add_argument('--iter', help="On which iteration it has stopped", default=0, type=int)
     args = parser.parse_args()
 
     tokens = read_txt(args.text)
