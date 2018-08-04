@@ -33,7 +33,7 @@ def get_tags(tokens):
     return [str2tuple(token)[1] for token in tokens]
 
 
-def viterbi(sent, states, alpha, n, n_path):
+def viterbi(sent, states, alpha, n, n_path, ipc, lpc, tpc):
     """Viterbi decoding"""
     T = [{}]
     states = list(sorted(states))
@@ -93,12 +93,12 @@ def viterbi(sent, states, alpha, n, n_path):
     return max_path[1:]
 
 
-def evaluate(sents, states, alpha, n, n_path):
+def evaluate(sents, states, ipc, lpc, tpc, alpha, n, n_path):
     """Computing accuracy (correct / total)"""
     correct = 0
     total = 0
     for sent in sents:
-        pred = viterbi(sent, states, alpha, n, n_path)
+        pred = viterbi(sent, states, alpha, n, n_path, ipc, lpc, tpc)
         for i in range(0, len(pred)):
             if pred[i] == sent[i][1]:
                 correct += 1
@@ -128,9 +128,9 @@ if __name__ == "__main__":
 
     if "en" in args.text:
         states = set(str2tuple(token)[1] for token in tokens)  # all tags in the data
-        evaluate(S_sents, states, alpha=2 ** (-70), n=20, n_path=30)
+        evaluate(S_sents, states, ipc, lpc, tpc, alpha=2 ** (-70), n=20, n_path=30)
         # alpha for pruning, n for pruning, n_path for backtracking
     else:
         states = set(str2tuple(token)[1] for token in tokens if len(token) > 10)  # all tags in the data
-        evaluate(S_sents, states, alpha=2 ** (-100), n=5, n_path=5)
+        evaluate(S_sents, states, ipc, lpc, tpc, alpha=2 ** (-100), n=5, n_path=5)
         # alpha for pruning, n for pruning, n_path for backtracking

@@ -147,6 +147,7 @@ def baum_welch(data, iter_stopped):
                 for c_id in range(len(obs)):
                     Theta[a_id, b_id, c_id] = F[a_id, c_id] * B[b_id, c_id + 1] * \
                                               old_T[a_id, b_id] * old_E[b_id, obs_ids[c_id]]
+        Theta = Theta / np.sum(Theta, (0, 1))
         print("Theta updated.")
 
         # Update transition matrix (T)
@@ -174,7 +175,7 @@ def baum_welch(data, iter_stopped):
         E_diff = np.linalg.norm(old_E - E)
         print("T diff", T_diff)
         print("E diff", E_diff)
-        if T_diff < .001 and E_diff < .001:
+        if T_diff < .1 and E_diff < .1:
             converged = True
 
     def transform2dict(matrix, iter1, iter2, iter1_arr, iter2_arr):
@@ -235,9 +236,10 @@ if __name__ == "__main__":
 
     if "en" in args.text:
         states = set(str2tuple(token)[1] for token in tokens)  # all tags in the data
-        evaluate(S_sents, states, alpha=2 ** (-70), n=20, n_path=30)
+        evaluate(S_sents, states, ipc, lpc, bpc, alpha=2 ** (-70), n=20, n_path=30)
         # alpha for pruning, n for pruning, n_path for backtracking
     else:
         states = set(str2tuple(token)[1] for token in tokens if len(token) > 10)  # all tags in the data
-        evaluate(S_sents, states, alpha=2 ** (-100), n=5, n_path=5)
+        evaluate(S_sents, states, ipc, lpc, bpc, alpha=2 ** (-100), n=5, n_path=5)
         # alpha for pruning, n for pruning, n_path for backtracking
+
