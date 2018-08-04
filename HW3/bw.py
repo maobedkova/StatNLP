@@ -114,9 +114,9 @@ def baum_welch(data, iter_stopped):
                 E[i, j] = lpc.emis_probs(inv_obs_map_dict[j], unique_states[i])
         iteration = 0
     else:
-        with open("trans_" + iter_stopped - 1, "rb") as t:
+        with open("trans_" + str(iter_stopped - 1), "rb") as t:
             T = pkl.load(t)
-        with open("emis_" + iter_stopped - 1, "rb") as e:
+        with open("emis_" + str(iter_stopped - 1), "rb") as e:
             E = pkl.load(e)
         iteration = iter_stopped
 
