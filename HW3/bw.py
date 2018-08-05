@@ -6,7 +6,7 @@ import pickle as pkl
 from collections import defaultdict
 from nltk.tag import str2tuple
 from smoothing import TriProbsCounts, BiProbsCounts, LexProbsCounts, InitProbsCounts
-from viterbi import viterbi, evaluate
+from viterbi import evaluate
 
 
 def read_txt(filename):
@@ -37,8 +37,8 @@ def get_obs_states(tokens):
     """Getting states (columns) and observations (rows) for trellis"""
     token_tuples = [str2tuple(token) for token in tokens]
     obs, states = zip(*token_tuples)
-    if "cz" in args.text:   # limit predictions because of memory error
-        new_states = [state[:3] for state in states if state]
+    if "cz" in args.text:   # limit tags because of memory error
+        new_states = [state[:2] for state in states if state]
         states = new_states
     return obs, states
 
@@ -79,7 +79,7 @@ def forward_backward(T, E, I, obs_ids):
     return P, F, B
 
 
-def baum_welch(data, iter_stopped):
+def baum_welch(data, iter_stopped, treshold):
     """Baum-Welch algorithm"""
     obs, states = get_obs_states(data)
     obs, states = np.array(obs), np.array(states)
@@ -90,12 +90,11 @@ def baum_welch(data, iter_stopped):
     num_obs = len(unique_obs)
     num_states = len(unique_states)
     # num_bi_states = len(unique_bi_states)
-    print(len(unique_states))
 
     # Mapping
     # we will use numpy matrices for speeding up computations; thus we map words to indices
     obs_map_dict = dict((word, i) for i, word in enumerate(unique_obs))         # dict of observation id mappings
-    inv_obs_map_dict = dict((value, key) for key, value in obs_map_dict.items())    # invert dict to map from id to token
+    inv_obs_map_dict = dict((value, key) for key, value in obs_map_dict.items()) # invert dict to map from id to token
     map2id = lambda d, tokens: [d[token] for token in tokens]    # mapping function
     obs_ids = np.array(map2id(obs_map_dict, obs))            # indices for words for the whole text
 
@@ -179,7 +178,7 @@ def baum_welch(data, iter_stopped):
         E_diff = np.linalg.norm(old_E - E)
         print("T diff", T_diff)
         print("E diff", E_diff)
-        if T_diff < .1 and E_diff < .1:
+        if T_diff < treshold and E_diff < treshold:
             converged = True
 
     def transform2dict(matrix, iter1, iter2, iter1_arr, iter2_arr):
@@ -203,6 +202,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('--text', help="Text name")
     parser.add_argument('--iter', help="On which iteration it has stopped", default=0, type=int)
+    parser.add_argument('--treshold', help="Difference for convergence", default=0.001, type=int)
     args = parser.parse_args()
 
     tokens = read_txt(args.text)
@@ -226,7 +226,7 @@ if __name__ == "__main__":
     # === UNSUPERVISED PART ===
 
     # Learning parameters
-    trans_probs, emis_probs = baum_welch(unsup_T, args.iter)
+    trans_probs, emis_probs = baum_welch(unsup_T, args.iter, args.treshold)
 
     # Smoothing transition probabilities
     bpc.bigr_probs = trans_probs
@@ -240,10 +240,9 @@ if __name__ == "__main__":
 
     if "en" in args.text:
         states = set(str2tuple(token)[1] for token in tokens)  # all tags in the data
-        evaluate(S_sents, states, ipc, lpc, bpc, alpha=2 ** (-70), n=20, n_path=30)
+        evaluate(S_sents, states, ipc, lpc, bpc, alpha=2 ** (-70), n=20, n_path=30, mode="bigr")
         # alpha for pruning, n for pruning, n_path for backtracking
     else:
         states = set(str2tuple(token)[1] for token in tokens if len(token) > 10)  # all tags in the data
-        evaluate(S_sents, states, ipc, lpc, bpc, alpha=2 ** (-100), n=5, n_path=5)
+        evaluate(S_sents, states, ipc, lpc, bpc, alpha=2 ** (-100), n=5, n_path=5, mode="bigr")
         # alpha for pruning, n for pruning, n_path for backtracking
-

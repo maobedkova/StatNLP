@@ -33,8 +33,8 @@ def get_tags(tokens):
     return [str2tuple(token)[1] for token in tokens]
 
 
-def viterbi(sent, states, alpha, n, n_path, ipc, lpc, tpc):
-    """Viterbi decoding"""
+def viterbi4trigr(sent, states, alpha, n, n_path):
+    """Viterbi decoding for trigram distribution"""
     T = [{}]
     states = list(sorted(states))
     path = {}
@@ -93,12 +93,74 @@ def viterbi(sent, states, alpha, n, n_path, ipc, lpc, tpc):
     return max_path[1:]
 
 
-def evaluate(sents, states, ipc, lpc, tpc, alpha, n, n_path):
+def viterbi4bigr(sent, states, alpha, n, n_path, ipc, lpc, tpc):
+    """Viterbi decoding for bigram distribution"""
+    T = [{}]
+    states = list(sorted(states))
+    path = {}
+
+    # Fill in first column of the trellis
+    for state in states:
+        prob = ipc.init_probs(sent[0][0], state) * lpc.emis_probs(sent[0][0], state)
+
+        # prob = math.log(ipc.init_probs(sent[0][0], state)) + math.log(lpc.emis_probs(sent[0][0], state))
+        # handling underflow (worked worse than simple normalization)
+
+        T[0][state] = prob
+        if prob > alpha:  # initial pruning
+            path[(state,)] = prob
+
+    # Fill in the rest of the trellis
+    # Iterate through stages (row)
+    for stage_id in range(1, len(sent)):
+        T.append({})
+        tmp_path = {}
+        # Iterate through states (column)
+        for state in states:
+            tmp_probs = dict((hist1, T[stage_id - 1][hist1] * tpc.trans_probs(hist1, state) *
+                              lpc.emis_probs(sent[stage_id][0], state))
+                             for hist1 in sorted(T[stage_id - 1], key=T[stage_id - 1].get, reverse=True)[:n])
+            # additional pruning based on n likeliest states
+
+            # tmp_probs = dict(
+            #     (hist1, T[stage_id - 1][hist1] + math.log(tpc.trans_probs(hist1, state)))
+            #     for hist1, in sorted(T[stage_id - 1], key=T[stage_id - 1].get, reverse=True)[:n])
+            # handling underflow (worked worse than simple normalization)
+
+            max_state = max(tmp_probs.items(), key=operator.itemgetter(1))
+            if max_state[1] > alpha:  # pruning
+                hist1 = max_state[0]
+                T[stage_id][state] = max_state[1]  # create new state
+
+                # T[stage_id][(hist1, state)] = math.log(lpc.emis_probs(sent[stage_id][0], state)) + max_state[1]
+                # handling underflow (worked worse than simple normalization)
+
+                # Extend probable paths
+                for p in path:
+                    if p[-1] == hist1:
+                        tmp_path[p + (state,)] = max_state[1]
+        # Update actual paths (delete not extended, choose 10 most probable of extended ones)
+        path = {key: tmp_path[key] for key in sorted(tmp_path, key=tmp_path.get, reverse=True)[:n_path]}
+
+        # Normalization for avoiding underflow
+        total_sum = sum(T[stage_id].values())
+        for el in T[stage_id]:
+            T[stage_id][el] /= total_sum
+
+    # Choose the likeliest path
+    max_path = max(path.items(), key=operator.itemgetter(1))[0]
+    return max_path[1:]
+
+
+def evaluate(sents, states, ipc, lpc, tpc, alpha, n, n_path, mode="trigr"):
     """Computing accuracy (correct / total)"""
     correct = 0
     total = 0
     for sent in sents:
-        pred = viterbi(sent, states, alpha, n, n_path, ipc, lpc, tpc)
+        if mode == "trigr":
+            pred = viterbi4trigr(sent, states, alpha, n, n_path)
+        else:
+            pred = viterbi4bigr(sent, states, alpha, ipc, lpc, tpc, n, n_path)
         for i in range(0, len(pred)):
             if pred[i] == sent[i][1]:
                 correct += 1
@@ -128,7 +190,7 @@ if __name__ == "__main__":
 
     if "en" in args.text:
         states = set(str2tuple(token)[1] for token in tokens)  # all tags in the data
-        evaluate(S_sents, states, ipc, lpc, tpc, alpha=2 ** (-70), n=20, n_path=30)
+        evaluate(S_sents, states, ipc, lpc, tpc, alpha=2 ** (-100), n=20, n_path=30)
         # alpha for pruning, n for pruning, n_path for backtracking
     else:
         states = set(str2tuple(token)[1] for token in tokens if len(token) > 10)  # all tags in the data
