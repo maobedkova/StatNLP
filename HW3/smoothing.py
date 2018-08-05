@@ -132,7 +132,7 @@ class LexProbsCounts:
 
     def emis_probs_BW(self, word, tag):
         """Getting an emission probability for Viterbi decoding after Baum-Welch"""
-        if (word, tag) in self.w_t_counts:
+        if (tag, word) in self.w_t_counts:
             return self.w_t_counts[(tag, word)]
         return 1. / self.V
 
@@ -180,9 +180,9 @@ class BiProbsCounts:
     def EM(self, H):
         """Smoothing EM algorithm: obtain lambdas"""
         # Initialize probability dictionaries
-        self.lambdas = [0.25, 0.25, 0.25, 0.25]    # initial lambdas
-        expected_lambdas = [0., 0., 0., 0.]
-        old_lambdas = [0., 0., 0., 0.]
+        self.lambdas = [0.25, 0.25, 0.25]    # initial lambdas
+        expected_lambdas = [0., 0., 0.]
+        old_lambdas = [0., 0., 0.]
         # While changes of lambdas are significant
         while all(el > 0.00001 for el in np.absolute(np.subtract(old_lambdas, self.lambdas))):
             old_lambdas = copy.deepcopy(self.lambdas)

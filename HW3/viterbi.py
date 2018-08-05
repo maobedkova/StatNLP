@@ -93,7 +93,7 @@ def viterbi4trigr(sent, states, alpha, n, n_path):
     return max_path[1:]
 
 
-def viterbi4bigr(sent, states, alpha, n, n_path, ipc, lpc, tpc):
+def viterbi4bigr(sent, states, ipc, lpc, tpc, alpha, n, n_path):
     """Viterbi decoding for bigram distribution"""
     T = [{}]
     states = list(sorted(states))
@@ -101,8 +101,7 @@ def viterbi4bigr(sent, states, alpha, n, n_path, ipc, lpc, tpc):
 
     # Fill in first column of the trellis
     for state in states:
-        prob = ipc.init_probs(sent[0][0], state) * lpc.emis_probs(sent[0][0], state)
-
+        prob = ipc.init_probs(sent[0][0], state) * lpc.emis_probs_BW(sent[0][0], state)
         # prob = math.log(ipc.init_probs(sent[0][0], state)) + math.log(lpc.emis_probs(sent[0][0], state))
         # handling underflow (worked worse than simple normalization)
 
@@ -118,7 +117,7 @@ def viterbi4bigr(sent, states, alpha, n, n_path, ipc, lpc, tpc):
         # Iterate through states (column)
         for state in states:
             tmp_probs = dict((hist1, T[stage_id - 1][hist1] * tpc.trans_probs(hist1, state) *
-                              lpc.emis_probs(sent[stage_id][0], state))
+                              lpc.emis_probs_BW(sent[stage_id][0], state))
                              for hist1 in sorted(T[stage_id - 1], key=T[stage_id - 1].get, reverse=True)[:n])
             # additional pruning based on n likeliest states
 
@@ -149,7 +148,7 @@ def viterbi4bigr(sent, states, alpha, n, n_path, ipc, lpc, tpc):
 
     # Choose the likeliest path
     max_path = max(path.items(), key=operator.itemgetter(1))[0]
-    return max_path[1:]
+    return max_path
 
 
 def evaluate(sents, states, ipc, lpc, tpc, alpha, n, n_path, mode="trigr"):
@@ -160,7 +159,7 @@ def evaluate(sents, states, ipc, lpc, tpc, alpha, n, n_path, mode="trigr"):
         if mode == "trigr":
             pred = viterbi4trigr(sent, states, alpha, n, n_path)
         else:
-            pred = viterbi4bigr(sent, states, alpha, ipc, lpc, tpc, n, n_path)
+            pred = viterbi4bigr(sent, states, ipc, lpc, tpc, alpha, n, n_path)
         for i in range(0, len(pred)):
             if pred[i] == sent[i][1]:
                 correct += 1
