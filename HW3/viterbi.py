@@ -161,7 +161,11 @@ def evaluate(sents, states, ipc, lpc, tpc, alpha, n, n_path, mode="trigr"):
         else:
             pred = viterbi4bigr(sent, states, ipc, lpc, tpc, alpha, n, n_path)
         for i in range(0, len(pred)):
-            if pred[i] == sent[i][1]:
+            if mode == "trigr":
+                actual = sent[i][1]
+            else:
+                actual = sent[i][1][:2]
+            if pred[i] == actual:
                 correct += 1
             total += 1
         print("Accuracy:", float(correct) / total, correct, "out of", total)
