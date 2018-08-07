@@ -22,3 +22,4 @@ Homework for Statistical NLP class of Charles University.
 #### Tagging
 
 - Q1: *Brill's Tagger & Tagger Evaluation* (nltk Brill`s tagger implementation)
+- Q2: *Unsupervised Learning: HMM Tagging* (supervised and unsupervised HMM tagging, Baum-Welch training, Viterbi decoding)

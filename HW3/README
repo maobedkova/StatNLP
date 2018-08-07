@@ -1,0 +1,3 @@
+vitrbi.py -- Viterbi algorithm, evaluation algorithm and main script for running just Viterbi decoding
+bw.py -- Baum-Welch algorithm and main script for running the training and decoding 
+smoothing.py -- classes for smoothing of different models
