@@ -123,7 +123,7 @@ def viterbi4bigr(sent, states, ipc, lpc, tpc, alpha, n, n_path):
 
             # tmp_probs = dict(
             #     (hist1, T[stage_id - 1][hist1] + math.log(tpc.trans_probs(hist1, state)))
-            #     for hist1, in sorted(T[stage_id - 1], key=T[stage_id - 1].get, reverse=True)[:n])
+            #     for hist1 in sorted(T[stage_id - 1], key=T[stage_id - 1].get, reverse=True)[:n])
             # handling underflow (worked worse than simple normalization)
 
             max_state = max(tmp_probs.items(), key=operator.itemgetter(1))
@@ -160,6 +160,7 @@ def evaluate(sents, states, ipc, lpc, tpc, alpha, n, n_path, mode="trigr"):
             pred = viterbi4trigr(sent, states, alpha, n, n_path)
         else:
             pred = viterbi4bigr(sent, states, ipc, lpc, tpc, alpha, n, n_path)
+            print(sent, pred)
         for i in range(0, len(pred)):
             if mode == "trigr":
                 actual = sent[i][1]

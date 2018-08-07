@@ -80,6 +80,7 @@ def forward_backward(T, E, I, obs_ids):
 
 
 def baum_welch(data, iter_stopped, treshold):
+# def baum_welch(data, iter_stopped, treshold, emit_p):
     """Baum-Welch algorithm"""
     obs, states = get_obs_states(data)
     obs, states = np.array(obs), np.array(states)
@@ -101,7 +102,7 @@ def baum_welch(data, iter_stopped, treshold):
     if iter_stopped == 0:
         # Matrices initialization
         # transition matrix (T) from state to state (num_states*num_states)
-        # T = np.ones((num_bi_states, num_states, num_states))
+        # T = np.ones((num_bi_states, num_states))
         # for i in range(num_bi_states):
         #     for j in range(num_states):
         #         T[i, j] = tpc.trans_probs(unique_bi_states[i][0], unique_bi_states[i][1], states[j])
@@ -127,59 +128,60 @@ def baum_welch(data, iter_stopped, treshold):
     I = np.ones(num_states)
     for i in range(num_states):
         I[i] = ipc.init_probs("", unique_states[i])
-    #
-    # # matrix of probabilities of being at state a at time j and b at time j+1
-    # # Theta = np.zeros((num_bi_states, num_states, len(obs)))
-    # Theta = np.zeros((num_states, num_states, len(obs)))
-    #
-    # print("Learning started.")
-    # converged = False
-    # while not converged:
-    #     iteration += 1
-    #     print("Iteration", iteration)
-    #     old_T = cp.deepcopy(T)
-    #     old_E = cp.deepcopy(E)
-    #     # Expectation step
-    #     P, F, B = forward_backward(T, E, I, obs_ids)
-    #     print("Forward-Backward finished.")
-    #
-    #     # transition probabilities at each time
-    #     # for a_id in range(num_bi_states):
-    #     for a_id in range(num_states):
-    #         for b_id in range(num_states):
-    #             for c_id in range(len(obs)):
-    #                 Theta[a_id, b_id, c_id] = F[a_id, c_id] * B[b_id, c_id + 1] * \
-    #                                           old_T[a_id, b_id] * old_E[b_id, obs_ids[c_id]]
-    #     Theta = Theta / np.sum(Theta, (0, 1))
-    #     print("Theta updated.")
-    #
-    #     # Update transition matrix (T)
-    #     # for a_id in range(num_bi_states):
-    #     for a_id in range(num_states):
-    #         for b_id in range(num_states):
-    #             T[a_id, b_id] = np.sum(Theta[a_id, b_id, :]) / np.sum(P[a_id, :])
-    #     T = T / np.sum(T, 1)
-    #     pkl.dump(T, open("trans_" + str(iteration), "wb"))   # backup T
-    #     print("T updated.")
-    #
-    #     # Update emission matrix (E)
-    #     for a_id in range(num_states):
-    #         for b_id in range(num_obs):
-    #             r_b_id = np.array(np.where(obs_ids == b_id)) + 1
-    #             E[a_id, b_id] = np.sum(P[a_id, r_b_id]) / np.sum(P[a_id, 1:])
-    #     E = np.nan_to_num(E)
-    #     E = E / np.sum(E, 1).reshape(num_states, 1)
-    #     E = np.nan_to_num(E)
-    #     pkl.dump(E, open("emis_" + str(iteration), "wb"))   # backup E
-    #     print("E updated.")
-    #
-    #     # Check convergence
-    #     T_diff = np.linalg.norm(old_T - T)
-    #     E_diff = np.linalg.norm(old_E - E)
-    #     print("T diff", T_diff)
-    #     print("E diff", E_diff)
-    #     if T_diff < treshold and E_diff < treshold:
-    #         converged = True
+
+    # matrix of probabilities of being at state a at time j and b at time j+1
+    # Theta = np.zeros((num_bi_states, num_states, len(obs)))
+    Theta = np.zeros((num_states, num_states, len(obs)))
+
+    print("Learning started.")
+    converged = False
+    while not converged:
+        iteration += 1
+        print("Iteration", iteration)
+        old_T = cp.deepcopy(T)
+        old_E = cp.deepcopy(E)
+        # Expectation step
+        P, F, B = forward_backward(T, E, I, obs_ids)
+        print("Forward-Backward finished.")
+
+        # transition probabilities at each time
+        # for a_id in range(num_bi_states):
+        for a_id in range(num_states):
+            for b_id in range(num_states):
+                for c_id in range(len(obs)):
+                    Theta[a_id, b_id, c_id] = F[a_id, c_id] * B[b_id, c_id + 1] * \
+                                              old_T[a_id, b_id] * old_E[b_id, obs_ids[c_id]]
+        Theta = Theta / np.sum(Theta, (0, 1))
+        print("Theta updated.")
+
+        # Update transition matrix (T)
+        # for a_id in range(num_bi_states):
+        for a_id in range(num_states):
+            for b_id in range(num_states):
+                T[a_id, b_id] = np.sum(Theta[a_id, b_id, :]) / np.sum(P[a_id, :])
+        T = T / np.sum(T, 1)
+        pkl.dump(T, open("trans_" + str(iteration), "wb"))   # backup T
+        print("T updated.")
+
+        # Update emission matrix (E)
+        for a_id in range(num_states):
+            print(a_id)
+            for b_id in range(num_obs):
+                r_b_id = np.array(np.where(obs_ids == b_id)) + 1
+                E[a_id, b_id] = np.sum(P[a_id, r_b_id]) / np.sum(P[a_id, 1:])
+        E = np.nan_to_num(E)
+        E = E / np.sum(E, 1).reshape(num_states, 1)
+        E = np.nan_to_num(E)
+        pkl.dump(E, open("emis_" + str(iteration), "wb"))   # backup E
+        print("E updated.")
+
+        # Check convergence
+        T_diff = np.linalg.norm(old_T - T)
+        E_diff = np.linalg.norm(old_E - E)
+        print("T diff", T_diff)
+        print("E diff", E_diff)
+        if T_diff < treshold and E_diff < treshold:
+            converged = True
 
     def transform2dict(matrix, iter1, iter2, iter1_arr, iter2_arr):
         """Transformation from matrix to dictionary"""
@@ -218,7 +220,7 @@ if __name__ == "__main__":
     bpc.EM(get_obs_states(H)[1])
 
     # Smoothing lexical model (add lambda)
-    lpc = LexProbsCounts(sup_T)     # used in BW as raw params
+    lpc = LexProbsCounts(get_obs_states(sup_T))     # used in BW as raw params
 
     # Smoothing unigram model (add lambda)
     ipc = InitProbsCounts(sup_T)    # used in BW as raw params
@@ -244,5 +246,6 @@ if __name__ == "__main__":
         # alpha for pruning, n for pruning, n_path for backtracking
     else:
         states = set(str2tuple(token)[1] for token in tokens if len(token) > 10)  # all tags in the data
+        states = set([state[:2] for state in states])
         evaluate(S_sents, states, ipc, lpc, bpc, alpha=2 ** (-100), n=5, n_path=5, mode="bigr")
         # alpha for pruning, n for pruning, n_path for backtracking

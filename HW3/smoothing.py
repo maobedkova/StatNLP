@@ -103,14 +103,15 @@ class TriProbsCounts:
 
 class LexProbsCounts:
     """Class for handling probabilities"""
-    def __init__(self, tokens):
+    def __init__(self, data):
         """Getting uniform, word given tag and tag probs"""
-        self.w_t_counts = Counter([str2tuple(token) for token in tokens])
-        self.t_counts = Counter([str2tuple(token)[1] for token in tokens])
-        self.words, self.tags = zip(*list(self.w_t_counts.keys()))
+        words, tags = data[0], data[1]
+        self.w_t_counts = Counter([(words[i], tags[i]) for i in range(len(words))])
+        self.t_counts = Counter(tags)
+        self.words, self.tags = list(set(words)), list(set(tags))
         self.a = 2 ** (-20)
         self.V = len(self.words) * len(self.tags)   # vocabulary size
-        self.N = len(tokens)        # data size
+        self.N = len(words)        # data size
 
     def get_probs(self, word, tag):
         """Getting probabilities for a word and a tag"""
