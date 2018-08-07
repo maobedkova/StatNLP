@@ -164,7 +164,6 @@ def baum_welch(data, iter_stopped, treshold):
 
         # Update emission matrix (E)
         for a_id in range(num_states):
-            print(a_id)
             for b_id in range(num_obs):
                 r_b_id = np.array(np.where(obs_ids == b_id)) + 1
                 E[a_id, b_id] = np.sum(P[a_id, r_b_id]) / np.sum(P[a_id, 1:])
