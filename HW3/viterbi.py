@@ -33,6 +33,16 @@ def get_tags(tokens):
     return [str2tuple(token)[1] for token in tokens]
 
 
+def get_obs_states(tokens):
+    """Getting states (columns) and observations (rows) for trellis"""
+    token_tuples = [str2tuple(token) for token in tokens]
+    obs, states = zip(*token_tuples)
+    if "cz" in args.text:   # limit tags because of memory error
+        new_states = [state[:2] for state in states if state]
+        states = new_states
+    return obs, states
+
+
 def viterbi4trigr(sent, states, alpha, n, n_path):
     """Viterbi decoding for trigram distribution"""
     T = [{}]
@@ -151,7 +161,7 @@ def viterbi4bigr(sent, states, ipc, lpc, tpc, alpha, n, n_path):
     return max_path
 
 
-def evaluate(sents, states, ipc, lpc, tpc, alpha, n, n_path, mode="trigr"):
+def evaluate(sents, states, ipc, lpc, tpc, alpha, n, n_path, lang, mode="trigr"):
     """Computing accuracy (correct / total)"""
     correct = 0
     total = 0
@@ -160,9 +170,9 @@ def evaluate(sents, states, ipc, lpc, tpc, alpha, n, n_path, mode="trigr"):
             pred = viterbi4trigr(sent, states, alpha, n, n_path)
         else:
             pred = viterbi4bigr(sent, states, ipc, lpc, tpc, alpha, n, n_path)
-            print(sent, pred)
+        # print(sent, pred)
         for i in range(0, len(pred)):
-            if mode == "trigr":
+            if lang == "en":
                 actual = sent[i][1]
             else:
                 actual = sent[i][1][:2]
@@ -185,7 +195,7 @@ if __name__ == "__main__":
     tpc.EM(get_tags(H))
 
     # Smoothing lexical model (add lambda)
-    lpc = LexProbsCounts(T + H)
+    lpc = LexProbsCounts(get_obs_states(T + H))
 
     # Smoothing unigram model (add lambda)
     ipc = InitProbsCounts(T + H)
@@ -194,9 +204,10 @@ if __name__ == "__main__":
 
     if "en" in args.text:
         states = set(str2tuple(token)[1] for token in tokens)  # all tags in the data
-        evaluate(S_sents, states, ipc, lpc, tpc, alpha=2 ** (-100), n=20, n_path=30)
+        evaluate(S_sents, states, ipc, lpc, tpc, alpha=2 ** (-70), n=20, n_path=30, lang="en")
         # alpha for pruning, n for pruning, n_path for backtracking
     else:
         states = set(str2tuple(token)[1] for token in tokens if len(token) > 10)  # all tags in the data
-        evaluate(S_sents, states, ipc, lpc, tpc, alpha=2 ** (-100), n=5, n_path=5)
+        states = set([state[:2] for state in states])
+        evaluate(S_sents, states, ipc, lpc, tpc, alpha=2 ** (-100), n=5, n_path=5, lang="cz")
         # alpha for pruning, n for pruning, n_path for backtracking

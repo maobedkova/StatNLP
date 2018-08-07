@@ -106,7 +106,7 @@ class LexProbsCounts:
     def __init__(self, data):
         """Getting uniform, word given tag and tag probs"""
         words, tags = data[0], data[1]
-        self.w_t_counts = Counter([(words[i], tags[i]) for i in range(len(words))])
+        self.w_t_counts = Counter([(words[i], tags[i]) for i in range(len(words) - 1)])
         self.t_counts = Counter(tags)
         self.words, self.tags = list(set(words)), list(set(tags))
         self.a = 2 ** (-20)

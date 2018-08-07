@@ -80,7 +80,6 @@ def forward_backward(T, E, I, obs_ids):
 
 
 def baum_welch(data, iter_stopped, treshold):
-# def baum_welch(data, iter_stopped, treshold, emit_p):
     """Baum-Welch algorithm"""
     obs, states = get_obs_states(data)
     obs, states = np.array(obs), np.array(states)
@@ -242,10 +241,10 @@ if __name__ == "__main__":
 
     if "en" in args.text:
         states = set(str2tuple(token)[1] for token in tokens)  # all tags in the data
-        evaluate(S_sents, states, ipc, lpc, bpc, alpha=2 ** (-70), n=20, n_path=30, mode="bigr")
+        evaluate(S_sents, states, ipc, lpc, bpc, alpha=2 ** (-70), n=20, n_path=30, lang="en", mode="bigr")
         # alpha for pruning, n for pruning, n_path for backtracking
     else:
         states = set(str2tuple(token)[1] for token in tokens if len(token) > 10)  # all tags in the data
         states = set([state[:2] for state in states])
-        evaluate(S_sents, states, ipc, lpc, bpc, alpha=2 ** (-100), n=5, n_path=5, mode="bigr")
+        evaluate(S_sents, states, ipc, lpc, bpc, alpha=2 ** (-100), n=5, n_path=5, lang="cz", mode="bigr")
         # alpha for pruning, n for pruning, n_path for backtracking
