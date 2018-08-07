@@ -130,56 +130,56 @@ def baum_welch(data, iter_stopped, treshold):
 
     # matrix of probabilities of being at state a at time j and b at time j+1
     # Theta = np.zeros((num_bi_states, num_states, len(obs)))
-    # Theta = np.zeros((num_states, num_states, len(obs)))
-    #
-    # print("Learning started.")
-    # converged = False
-    # while not converged:
-    #     iteration += 1
-    #     print("Iteration", iteration)
-    #     old_T = cp.deepcopy(T)
-    #     old_E = cp.deepcopy(E)
-    #     # Expectation step
-    #     P, F, B = forward_backward(T, E, I, obs_ids)
-    #     print("Forward-Backward finished.")
-    #
-    #     # transition probabilities at each time
-    #     # for a_id in range(num_bi_states):
-    #     for a_id in range(num_states):
-    #         for b_id in range(num_states):
-    #             for c_id in range(len(obs)):
-    #                 Theta[a_id, b_id, c_id] = F[a_id, c_id] * B[b_id, c_id + 1] * \
-    #                                           old_T[a_id, b_id] * old_E[b_id, obs_ids[c_id]]
-    #     Theta = Theta / np.sum(Theta, (0, 1))
-    #     print("Theta updated.")
-    #
-    #     # Update transition matrix (T)
-    #     # for a_id in range(num_bi_states):
-    #     for a_id in range(num_states):
-    #         for b_id in range(num_states):
-    #             T[a_id, b_id] = np.sum(Theta[a_id, b_id, :]) / np.sum(P[a_id, :])
-    #     T = T / np.sum(T, 1)
-    #     pkl.dump(T, open("trans_" + str(iteration), "wb"))   # backup T
-    #     print("T updated.")
-    #
-    #     # Update emission matrix (E)
-    #     for a_id in range(num_states):
-    #         for b_id in range(num_obs):
-    #             r_b_id = np.array(np.where(obs_ids == b_id)) + 1
-    #             E[a_id, b_id] = np.sum(P[a_id, r_b_id]) / np.sum(P[a_id, 1:])
-    #     E = np.nan_to_num(E)
-    #     E = E / np.sum(E, 1).reshape(num_states, 1)
-    #     E = np.nan_to_num(E)
-    #     pkl.dump(E, open("emis_" + str(iteration), "wb"))   # backup E
-    #     print("E updated.")
-    #
-    #     # Check convergence
-    #     T_diff = np.linalg.norm(old_T - T)
-    #     E_diff = np.linalg.norm(old_E - E)
-    #     print("T diff", T_diff)
-    #     print("E diff", E_diff)
-    #     if T_diff < treshold and E_diff < treshold:
-    #         converged = True
+    Theta = np.zeros((num_states, num_states, len(obs)))
+
+    print("Learning started.")
+    converged = False
+    while not converged:
+        iteration += 1
+        print("Iteration", iteration)
+        old_T = cp.deepcopy(T)
+        old_E = cp.deepcopy(E)
+        # Expectation step
+        P, F, B = forward_backward(T, E, I, obs_ids)
+        print("Forward-Backward finished.")
+
+        # transition probabilities at each time
+        # for a_id in range(num_bi_states):
+        for a_id in range(num_states):
+            for b_id in range(num_states):
+                for c_id in range(len(obs)):
+                    Theta[a_id, b_id, c_id] = F[a_id, c_id] * B[b_id, c_id + 1] * \
+                                              old_T[a_id, b_id] * old_E[b_id, obs_ids[c_id]]
+        Theta = Theta / np.sum(Theta, (0, 1))
+        print("Theta updated.")
+
+        # Update transition matrix (T)
+        # for a_id in range(num_bi_states):
+        for a_id in range(num_states):
+            for b_id in range(num_states):
+                T[a_id, b_id] = np.sum(Theta[a_id, b_id, :]) / np.sum(P[a_id, :])
+        T = T / np.sum(T, 1)
+        pkl.dump(T, open("trans_" + str(iteration), "wb"))   # backup T
+        print("T updated.")
+
+        # Update emission matrix (E)
+        for a_id in range(num_states):
+            for b_id in range(num_obs):
+                r_b_id = np.array(np.where(obs_ids == b_id)) + 1
+                E[a_id, b_id] = np.sum(P[a_id, r_b_id]) / np.sum(P[a_id, 1:])
+        E = np.nan_to_num(E)
+        E = E / np.sum(E, 1).reshape(num_states, 1)
+        E = np.nan_to_num(E)
+        pkl.dump(E, open("emis_" + str(iteration), "wb"))   # backup E
+        print("E updated.")
+
+        # Check convergence
+        T_diff = np.linalg.norm(old_T - T)
+        E_diff = np.linalg.norm(old_E - E)
+        print("T diff", T_diff)
+        print("E diff", E_diff)
+        if T_diff < treshold and E_diff < treshold:
+            converged = True
 
     def transform2dict(matrix, iter1, iter2, iter1_arr, iter2_arr):
         """Transformation from matrix to dictionary"""
